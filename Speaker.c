@@ -48,6 +48,11 @@ struct response_msg {
 	char	responsedata[MAXSIZE_MSGDATA+1];
 };
 
+struct special_response_msg {
+	long	client_id;
+	int response;
+	char	responsedata[2048];
+};
 
 struct user_record 
 {
@@ -55,6 +60,7 @@ struct user_record
 	char name[MAXSIZE_USERNAME+1];
 };
 
+struct special_response_msg spc;
 /******************************************************************
 *
 * Declarações de funções
@@ -119,10 +125,10 @@ void main()
 	// Se nao aceitou login, sai do cliente
 	if (resp_msg.response!=OK_RESP)
 		exit(1);
-		
-	void main_screen(req_msg, resp_msg, user_info, mqid);
+ 
+	main_screen(req_msg, resp_msg, user_info, mqid);
 
-	exit(0);	
+	exit(0);
 }
 
 
@@ -140,7 +146,7 @@ void main_screen(struct request_msg req_msg, struct response_msg resp_msg, struc
 	// Laco de interface com o usuario
 	stop_client=0;
 	while(!stop_client) {
-	  system("cls");
+	  system("clear");
 
 		printf("Qual opcao?\n");
 		printf("   0: Sai do cliente;\n");
@@ -155,6 +161,8 @@ void main_screen(struct request_msg req_msg, struct response_msg resp_msg, struc
 		printf("   9: MyId;\n");
 		printf("   10: Help;\n");
 		printf("   11: Para o servidor e sai do cliente;\n");
+		printf("----------------------------------------\n");
+		printf("%s:", user_info.name);
 		scanf("%d",&opt);
 		scanf("%c",&tmp);  // Necessario por problema na scanf() que retorna newline extra
 		
@@ -274,16 +282,9 @@ void send_mensage(struct request_msg req_msg, struct response_msg resp_msg, stru
 	req_msg.client_id = user_info.id;
 	
 	// Envia requisicao ao servidor
-	msgsnd(mqid,&req_msg,sizeof(struct request_msg)-sizeof(long),0);
+ msgsnd(mqid,&req_msg,sizeof(struct request_msg)-sizeof(long),0);
 
-}
 
-void list_mensage(struct request_msg req_msg, struct response_msg resp_msg, struct user_record user_info, int mqid){
-
-	req_msg.request=LIST_MENSAGE_REQ;
-	req_msg.server_id = SERVER_ID;
-	req_msg.client_id = user_info.id;
-	
 	if (msgrcv(mqid,&resp_msg,sizeof(struct response_msg)-sizeof(long),user_info.id,0) < 0) {
 		printf("msgrcv() falhou\n"); exit(1);
 	}
@@ -292,6 +293,27 @@ void list_mensage(struct request_msg req_msg, struct response_msg resp_msg, stru
 	printf("Mensagens':\n");
 	printf("%s\n",resp_msg.responsedata);
 
+	sleep(5);
+}
+
+void list_mensage(struct request_msg req_msg, struct response_msg resp_msg, struct user_record user_info, int mqid){
+
+	req_msg.request=LIST_MENSAGE_REQ;
+	req_msg.server_id = SERVER_ID;
+	req_msg.client_id = user_info.id;
+
+	// Envia requisicao ao servidor
+	msgsnd(mqid,&req_msg,sizeof(struct request_msg)-sizeof(long),0);
+
+	if (msgrcv(mqid,&resp_msg,sizeof(struct response_msg)-sizeof(long),user_info.id,0) < 0) {
+		printf("msgrcv() falhou\n"); exit(1);
+	}
+	
+	// Apresenta o texto convertido
+	printf("Mensagens':\n");
+	printf("%s\n",spc.responsedata);
+	
+	sleep(5);
 }
 	
 void post_mensage(struct request_msg req_msg, struct response_msg resp_msg, struct user_record user_info, int mqid){
@@ -304,13 +326,8 @@ void post_mensage(struct request_msg req_msg, struct response_msg resp_msg, stru
 	req_msg.server_id = SERVER_ID;
 	req_msg.client_id = user_info.id;
 
-}
-
-void list_posts(struct request_msg req_msg, struct response_msg resp_msg, struct user_record user_info, int mqid){
-
-	req_msg.request=SHOW_POST_REQ;
-	req_msg.server_id = SERVER_ID;
-	req_msg.client_id = user_info.id;
+	// Envia requisicao ao servidor
+	msgsnd(mqid,&req_msg,sizeof(struct request_msg)-sizeof(long),0);
 
 	if (msgrcv(mqid,&resp_msg,sizeof(struct response_msg)-sizeof(long),user_info.id,0) < 0) {
 		printf("msgrcv() falhou\n"); exit(1);
@@ -320,6 +337,27 @@ void list_posts(struct request_msg req_msg, struct response_msg resp_msg, struct
 	printf("Mensagens':\n");
 	printf("%s\n",resp_msg.responsedata);
 
+	sleep(2);
+}
+
+void list_posts(struct request_msg req_msg, struct response_msg resp_msg, struct user_record user_info, int mqid){
+
+	req_msg.request=SHOW_POST_REQ;
+	req_msg.server_id = SERVER_ID;
+	req_msg.client_id = user_info.id;
+
+	// Envia requisicao ao servidor
+	msgsnd(mqid,&req_msg,sizeof(struct request_msg)-sizeof(long),0);
+
+	if (msgrcv(mqid,&spc,sizeof(struct special_response_msg)-sizeof(long),user_info.id,0) < 0) {
+		printf("msgrcv() falhou\n"); exit(1);
+	}
+	
+	// Apresenta o texto convertido
+	printf("Mensagens:\n");
+	printf("%s\n",spc.responsedata);
+
+	sleep(5);
 }
 
 void delete_mensage(struct request_msg req_msg, struct response_msg resp_msg, struct user_record user_info, int mqid){
@@ -332,13 +370,24 @@ void delete_mensage(struct request_msg req_msg, struct response_msg resp_msg, st
 void delete_post(struct request_msg req_msg, struct response_msg resp_msg, struct user_record user_info, int mqid){
 
 	printf("Qual o indice do post que deve ser excluido:");
-	safegets(req_msg.index,MAXSIZE_USERNAME);
+	safegets(req_msg.requestdata,MAXSIZE_USERNAME);
 
 	req_msg.request=DEL_POST_REQ;
 	req_msg.server_id = SERVER_ID;
 	req_msg.client_id = user_info.id;
 
-}
+	// Envia requisicao ao servidor
+	msgsnd(mqid,&req_msg,sizeof(struct request_msg)-sizeof(long),0);
+
+	if (msgrcv(mqid,&resp_msg,sizeof(struct response_msg)-sizeof(long),user_info.id,0) < 0) {
+		printf("msgrcv() falhou\n"); exit(1);
+	}
+	
+	// Apresenta o texto convertido
+	printf("Mensagens':\n");
+	printf("%s\n",resp_msg.responsedata);
+
+	sleep(2);}
 	
 void delete_all_posts(struct request_msg req_msg, struct response_msg resp_msg, struct user_record user_info, int mqid){
 
@@ -346,6 +395,18 @@ void delete_all_posts(struct request_msg req_msg, struct response_msg resp_msg, 
 	req_msg.server_id = SERVER_ID;
 	req_msg.client_id = user_info.id;
 
+	// Envia requisicao ao servidor
+	msgsnd(mqid,&req_msg,sizeof(struct request_msg)-sizeof(long),0);
+
+	if (msgrcv(mqid,&resp_msg,sizeof(struct response_msg)-sizeof(long),user_info.id,0) < 0) {
+		printf("msgrcv() falhou\n"); exit(1);
+	}
+	
+	// Apresenta o texto convertido
+	printf("Mensagens':\n");
+	printf("%s\n",resp_msg.responsedata);
+
+	sleep(2);
 }
 
 void list_users(struct request_msg req_msg, struct response_msg resp_msg, struct user_record user_info, int mqid){
@@ -354,14 +415,17 @@ void list_users(struct request_msg req_msg, struct response_msg resp_msg, struct
 	req_msg.server_id = SERVER_ID;
 	req_msg.client_id = user_info.id;
 
-	if (msgrcv(mqid,&resp_msg,sizeof(struct response_msg)-sizeof(long),user_info.id,0) < 0) {
+	msgsnd(mqid,&req_msg,sizeof(struct request_msg)-sizeof(long),0);
+
+	if (msgrcv(mqid,&spc,sizeof(struct special_response_msg)-sizeof(long),user_info.id,0) < 0) {
 		printf("msgrcv() falhou\n"); exit(1);
 	}
 	
 	// Apresenta o texto convertido
-	printf("Mensagens':\n");
-	printf("%s\n",resp_msg.responsedata);
-	
+	printf("Mensagens:\n");
+	printf("%s\n",spc.responsedata);
+
+	sleep(5);
 }
 
 void show_id(struct request_msg req_msg, struct response_msg resp_msg, struct user_record user_info, int mqid){
@@ -369,20 +433,26 @@ void show_id(struct request_msg req_msg, struct response_msg resp_msg, struct us
 	req_msg.request=SHOW_ID_REQ;
 	req_msg.server_id = SERVER_ID;
 	req_msg.client_id = user_info.id;
+
+	strncpy(req_msg.requestdata,user_info.name,MAXSIZE_USERNAME);
+
+	msgsnd(mqid,&req_msg,sizeof(struct request_msg)-sizeof(long),0);
 	
 	if (msgrcv(mqid,&resp_msg,sizeof(struct response_msg)-sizeof(long),user_info.id,0) < 0) {
 		printf("msgrcv() falhou\n"); exit(1);
 	}
 	
 	// Apresenta o texto convertido
-	printf("Mensagens':\n");
-	printf("%s\n",resp_msg.responsedata);
+	printf("Mensagens:\n");
+	printf("Nome = %s\n",resp_msg.responsedata);
+	printf("ID = %d\n",resp_msg.client_id);
 
+	sleep(5);
 }
 
 void help_menu(){
 
-	system("cls");
+	system("clear");
 	
 	printf("HELP\n");
 	printf("   0: Sai do cliente (Fecha janela cliente);\n");
@@ -398,6 +468,7 @@ void help_menu(){
 	printf("   10: Help (Menu de ajuda)\n");
 	printf("   11: Para o servidor e sai do cliente (Parada Total do servidor e saida do cliente);\n");	
 
+	sleep(5);
 }
 
 void stop_all(struct request_msg req_msg, struct response_msg resp_msg, struct user_record user_info, int mqid){
@@ -430,15 +501,8 @@ char *safegets(char *buffer, int buffersize)
 {
 	char *str;
 	int slen;
-	
-	// First we use fgets(), which has buffer 
-	// protection, to read the string from 
-	// standard input
+
 	str = fgets(buffer,buffersize,stdin);
-	// Different thant gets(), fgets() keeps 
-	// the newline char read from the input 
-	// as the last char of the string, so we 
-	// eliminate this newline char here
 	if (str!=NULL) {
 		slen = strlen(str);
 		if (slen>0)
